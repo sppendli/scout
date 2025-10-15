@@ -43,7 +43,7 @@ class ScoutDB:
             CREATE TABLE IF NOT EXISTS competitors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
-                set_name TEXT NOT NULL
+                set_name TEXT NOT NULL,
                 active INTEGER DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -57,7 +57,7 @@ class ScoutDB:
                 source_type TEXT NOT NULL,
                 last_scraped TIMESTAMP,
                 status TEXT DEFAULT 'active',
-                FORIEGN KEY (competitor_id) REFERENCES competitors(id)           
+                FOREIGN KEY (competitor_id) REFERENCES competitors(id)           
             )
         """)
 

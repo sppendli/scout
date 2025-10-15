@@ -11,23 +11,23 @@ COMPETITOR_SETS = {
         {
             "name": "Mixpanel",
             "sources": [
-                {"url": "https://mixpanel.com/blog/", "type": "blog"},
-                {"url": "https://mixpanel.com/blog/feed/", "type": "rss"},
-                {"url": "https://mixpanel.com/changelog/", "type": "changelog"}
+                {"url": "https://mixpanel.com/blog/", "type": "html"},
+                # {"url": "https://mixpanel.com/blog/feed/", "type": "rss"},
+                # {"url": "https://mixpanel.com/changelog/", "type": "changelog"}
             ]
         },
         {
             "name": "Amplitude",
             "sources": [
-                {"url": "https://amplitude.com/blog", "type": "blog"},
-                {"url": "https://amplitude.com/releases", "type": "changelog"}
+                {"url": "https://amplitude.com/blog", "type": "html"},
+                # {"url": "https://amplitude.com/releases", "type": "changelog"}
             ]
         },
         {
             "name": "Heap",
             "sources": [
-                {"url": "https://heap.io/blog", "type": "blog"},
-                {"url": "https://heap.io/changelog", "type": "changelog"}
+                {"url": "https://www.heap.io/blog", "type": "html"},
+                # {"url": "https://heap.io/changelog", "type": "changelog"}
             ]
         }
     ]
@@ -112,7 +112,7 @@ def load_competitors_to_db():
         for competitor in competitors:
             competitor_id = db.add_competitor(competitor["name"], set_name)
             for source in competitor["sources"]:
-                db.add_source(competitor_id, source["url"], source_type=["type"])
+                db.add_source(competitor_id, source["url"], source["type"])
 
         print(f"✅ Loaded {len(get_all_competitors())} competitors into database")
 
