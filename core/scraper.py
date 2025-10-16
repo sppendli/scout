@@ -137,3 +137,70 @@ class ScoutScraper:
             logger.error(f"HTML scraping failed for {url}: {e}")
 
         return articles
+    
+    def scrape_source(self, source: Dict) -> Tuple[int, int]:
+        """
+        Scrape a single source and save to database.
+        Returns (news_articles_count, duplicate_count).
+        """
+        source_id = source["id"]
+        url = source["url"]
+        source_type = source["source_type"]
+
+        if source_type == "rss":
+            raw_articles = self.scrape_rss(url)
+        elif source_type == "html":
+            raw_articles = self.scrape_html(url)
+        else:
+            logger.error(f"Unknown source type: {source_type}")
+            return 0, 0
+        
+        new_count = 0
+        duplicate_count = 0
+
+        for article in raw_articles:
+            article_id = db.add_article(
+                source_id=source_id,
+                title=article["title"],
+                content=article["content"],
+                url=article["url"],
+                publish_date=article["date"]
+            )
+
+            if article_id:
+                new_count += 1
+            else:
+                duplicate_count += 1
+
+            db.update_source_scrape_time(source_id)
+            
+            return new_count, duplicate_count        
+    
+    def scrape_competitor(self, competitor_id: int):
+        """
+        Scrape all sources for a competitor.
+        Returns summary statistics.
+        """
+        sources = db.get_sources_by_competitor(competitor_id)
+
+        total_new = 0
+        total_duplicates = 0
+        errors = 0
+
+        for source in sources:
+            try:
+                new, duplicates = self.scrape_source(source)
+                total_new += new
+                total_duplicates += duplicates
+            except Exception as e:
+                logger.error(f"Failed to scrape source {source['url']}: {e}")
+                errors += 1
+
+        return {
+            "total_sources": len(sources),
+            "new_articles": total_new,
+            "duplicates": total_duplicates,
+            "errors": errors
+        }
+    
+scraper = ScoutScraper()
