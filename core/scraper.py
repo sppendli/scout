@@ -13,8 +13,9 @@ import feedparser
 from newspaper import Article, ArticleException
 from html import unescape
 import re
+import sys
 
-from core.config import SCRAPE_CONFIG, get_random_user_agent
+from core.config import SCRAPE_CONFIG, get_random_user_agent, get_set_names
 from core.database import db
 
 logging.basicConfig(level=logging.INFO)
@@ -203,4 +204,53 @@ class ScoutScraper:
             "errors": errors
         }
     
+    def scrape_competitor_set(self, set_name: str) -> Dict:
+        """
+        Scrape all competitors in a set
+        Returns aggregated statistics.
+        """
+        logger.info(f"🚀 Starting scrape for competitor set: {set_name}")
+        start_time = time.time()
+
+        competitors = db.get_competitors_by_set(set_name)
+        results = {}
+
+        for competitor in competitors:
+            logger.info(f"📊 Scraping {competitor['name']}...")
+            results[competitor['name']] = self.scrape_competitor(competitor['id'])
+        
+        elapsed = time.time() - start_time
+
+        total_new = sum(r["new_articles"] for r in results.values())
+        total_duplicates = sum(r["duplicates"] for r in results.values())
+        total_errors = sum(r["errors"] for r in results.values())
+
+        summary = {
+            "set_name": set_name,
+            "competitors": len(competitors),
+            "new_articles": total_new,
+            "duplicates": total_duplicates,
+            "errors": total_errors,
+            "elapsed_counts": round(elapsed, 2),
+            "per_competitor": results
+        }
+
+        logger.info(f"✅ Scrape complete: {total_new} new articles in {elapsed:.1f}s")
+        return summary
+    
 scraper = ScoutScraper()
+
+if __name__ =="__main__":
+    if len(sys.argv) > 1:
+        set_name = sys.argv[1]
+    else:
+        set_name = get_set_names()[0]
+    
+    print(f"/n 🧪 Testring scraper for: {set_name}\n")
+    results = scraper.scrape_competitor_set(set_name)
+
+    print(f"\n📊 Results:")
+    print(f"    New articles: {results['new_articles']}")
+    print(f"    Duplicates: {results['duplicates']}")
+    print(f"    Errors: {results{'errors'}}")
+    print(f"    Time: {results['elapsed_seconds']}s")
