@@ -173,9 +173,9 @@ class ScoutScraper:
             else:
                 duplicate_count += 1
 
-            db.update_source_scrape_time(source_id)
-            
-            return new_count, duplicate_count        
+        db.update_source_scrape_time(source_id)
+        
+        return new_count, duplicate_count        
     
     def scrape_competitor(self, competitor_id: int):
         """
@@ -206,7 +206,7 @@ class ScoutScraper:
     
     def scrape_competitor_set(self, set_name: str) -> Dict:
         """
-        Scrape all competitors in a set
+        Scrape all competitors in a set.
         Returns aggregated statistics.
         """
         logger.info(f"🚀 Starting scrape for competitor set: {set_name}")

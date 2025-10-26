@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class ScoutDB:
     """
-    Database manaher for Scout with connection pooling and error handling.
+    Database manager for Scout with connection pooling and error handling.
     """
 
     def __init__(self, db_path: str="data/scout.db"):
@@ -199,7 +199,7 @@ class ScoutDB:
             conn.commit()
             return cursor.lastrowid
         except sqlite3.IntegrityError:
-            logger.debug(f"Duplicate artivle detected: {title[:50]}")
+            logger.debug(f"Duplicate article detected: {title[:50]}")
             return None
         finally:
             conn.close()
@@ -230,7 +230,7 @@ class ScoutDB:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT a.*, s.url as source_uel , c.name as competitor_name
+            SELECT a.*, s.url as source_url , c.name as competitor_name
             FROM articles a
             JOIN sources s ON a.source_id = s.id
             JOIN competitors c ON s.competitor_id = c.id
@@ -269,7 +269,8 @@ class ScoutDB:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT 
+            SELECT e.*, a.title, a.url, a.publish_date,
+                    c.name as competitor_name, c.set_name
             FROM events e
             JOIN articles a ON e.article_id = a.id
             JOIN sources s ON a.source_id = s.id
