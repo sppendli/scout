@@ -252,5 +252,5 @@ if __name__ =="__main__":
     print(f"\n📊 Results:")
     print(f"    New articles: {results['new_articles']}")
     print(f"    Duplicates: {results['duplicates']}")
-    print(f"    Errors: {results{'errors'}}")
+    print(f"    Errors: {results['errors']}")
     print(f"    Time: {results['elapsed_seconds']}s")
