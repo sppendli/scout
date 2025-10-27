@@ -231,7 +231,7 @@ class ScoutScraper:
             "new_articles": total_new,
             "duplicates": total_duplicates,
             "errors": total_errors,
-            "elapsed_counts": round(elapsed, 2),
+            "elapsed_seconds": round(elapsed, 2),
             "per_competitor": results
         }
 
@@ -246,7 +246,7 @@ if __name__ =="__main__":
     else:
         set_name = get_set_names()[0]
     
-    print(f"/n 🧪 Testring scraper for: {set_name}\n")
+    print(f"/n 🧪 Testing scraper for: {set_name}\n")
     results = scraper.scrape_competitor_set(set_name)
 
     print(f"\n📊 Results:")
