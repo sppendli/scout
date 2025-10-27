@@ -42,7 +42,7 @@ EVENT_CATEGORIES = {
     "pricing_change": {
         "description": "Pricing updates, new tiers, packaging changes, or promotional offers",
         "keywords": ["pricing", "price", "tier", "plan", "cost", "free trial"],
-        "examples": ["20% discount", "Enterpris plan now available", "Free tier expansion"]
+        "examples": ["20% discount", "Enterprise plan now available", "Free tier expansion"]
     },
     "partnership": {
         "description": "Collaborations, integrations, acquistions, or strategic alliances",
