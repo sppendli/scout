@@ -146,7 +146,7 @@ Classify this article according to the system instructions.
                 response_format={"type": "json_object"}
             )
 
-            result = json.laods(response.choices[0].message.content)
+            result = json.loads(response.choices[0].message.content)
 
             required_fields = ["category", "summary", "confidence", "entities", "impact_level"]
             if not all(field in result for field in required_fields):
@@ -168,3 +168,72 @@ Classify this article according to the system instructions.
         except Exception as e:
             logger.error(f"Classification failed for {article['title'][:50]}: {e}")
             return None
+        
+    def classify_and_save(self, article: Dict) -> Optional[int]:
+        """
+        Classify article and save event to database.
+        Returns event_id if successful, None otherwise.
+        """
+        classification = self.classify_article(article)
+        if not classification:
+            return None
+        
+        if classification["category"] == "other":
+            logger.debug(f"Skipping 'other' category fore: {article['title'][:50]}")
+            return None
+        
+        try:
+            event_id = db.add_event(
+                article_id=article['id'],
+                category=classification['category'],
+                summary=classification['summary'],
+                confidence=classification['confidence'],
+                entities={"items": classification['entities']},
+                impact_level=classification['impact_level']
+            )
+            return event_id
+        except Exception as e:
+            logger.error(f"Failed to save event: {e}")
+            return None
+        
+    def batch_classify(self, articles: List[Dict], max_articles: int = None) -> Dict:
+        """
+        Classify multiple articles with progress tracking.
+        Returns summary statistics.
+        """
+        if max_articles:
+            articles = articles[:max_articles]
+        
+        logger.info(f"🚀 Starting batch classification of {len(articles)} articles")
+        start_time = time.time()
+
+        stats = {
+            "total": len(articles),
+            "classified": 0,
+            "skipped_low_confidence": 0,
+            "skipped_other": 0,
+            "errors": 0,
+            "cached": 0
+        }
+
+        for i, article in enumerate(articles, 1):
+            logger.info(f"📊 Progress: {i}/{len(articles)}")
+
+            existing_events = db.get_events_by_article_id(article['id'])
+            if existing_events:
+                logger.debug(f"Already classified: {article['title'][:50]}")
+                stats["skipped_other"] += 1
+                continue
+
+            event_id = self.classify_and_save(article)
+            if event_id:
+                stats["classified"] += 1
+            else:
+                stats["skipped_low_confidence"] += 1
+
+        elapsed = time.time() - start_time
+        stats["elapsed_seconds"] = round(elapsed, 2)
+        stats["avg_time_per_article"] = round(elapsed / len(articles), 2)
+
+        logger.info(f"✅ Batch classification complete: {stats['classified']} events in {elapsed:.1f}s")
+        return stats

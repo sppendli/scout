@@ -283,6 +283,17 @@ class ScoutDB:
         conn.close()
         return results
     
+    def get_events_by_article_id(self, article_id: int) -> List[Dict]:
+        """
+        Get all events for a specific article.
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM events WHERE article_id = ?", (article_id,))
+        results = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return results
+
     def get_event_stats_by_set(self, set_name: str) -> Dict:
         """
         Get aggregated statistics for a competitor set.
