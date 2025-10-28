@@ -4,12 +4,22 @@ Uses OpenAI GPT-4o-Mini with structured outputs for reliable parsing.
 """
 
 import os
+import logging
 import time
 from typing import Dict, List, Optional, Tuple
+import hashlib
+from datetime import datetime
+import json
 
 from openai import OpenAI
+from dotenv import load_dotenv
 
 from core.config import LLM_CONFIG, EVENT_CATEGORIES
+from core.database import db
+
+load_dotenv()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class EventClassifier:
     """
@@ -109,3 +119,52 @@ If the article contains no relevant competitive intelligence, return:
 
 Classify this article according to the system instructions.
 """
+    
+    def classify_article(self, article: Dict) -> Optional[Dict]:
+        """
+        Classify an article using LLM.
+        Returns classification dict or None if below confidence threshold.
+        """
+        content_hash = hashlib.sha256(article['content'].encode()).hexdigest()
+        if content_hash in self.cache:
+            logger.debug(f"Cache hit for article: {article['title'][:50]}")
+            return self.cache[content_hash]
+        
+        self._rate_limit()
+
+        try:
+            logger.info(f"🤖 Classifying: {article['title'][:60]}...")
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role":"system", "content": self._build_system_prompt()},
+                    {"role": "user", "content": self._build_user_prompt(article)}
+                ],
+                temperature=LLM_CONFIG["temperature"],
+                max_tokens=LLM_CONFIG["max_tokens"],
+                response_format={"type": "json_object"}
+            )
+
+            result = json.laods(response.choices[0].message.content)
+
+            required_fields = ["category", "summary", "confidence", "entities", "impact_level"]
+            if not all(field in result for field in required_fields):
+                logger.error(f"Invalid response format: {result}")
+                return None
+            
+            if result["confidence"] < LLM_CONFIG["confidence_threshold"]:
+                logger.info(f"⏭️ Skipping low confidence ({result['confidence']:.2f}): {article['title'][:50]}")
+                return None
+            
+            self.cache[content_hash] = result
+
+            logger.info(f"✅ Classified as {result['category']} ({result['confidence']:.2f})")
+            return result
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse LLM response: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Classification failed for {article['title'][:50]}: {e}")
+            return None
