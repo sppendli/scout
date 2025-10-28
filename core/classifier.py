@@ -10,11 +10,12 @@ from typing import Dict, List, Optional, Tuple
 import hashlib
 from datetime import datetime
 import json
+import sys
 
 from openai import OpenAI
 from dotenv import load_dotenv
 
-from core.config import LLM_CONFIG, EVENT_CATEGORIES
+from core.config import LLM_CONFIG, EVENT_CATEGORIES, get_set_names
 from core.database import db
 
 load_dotenv()
@@ -251,3 +252,17 @@ Classify this article according to the system instructions.
             return {"message": "No new articles to classify", "classifed": 0}
         
         return self.batch_classify(articles)
+
+classifier = EventClassifier()
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        set_name = sys.argv[1]
+    else:
+        set_name = get_set_names()[0]
+
+    print(f"\n🧪 Testing classifier for: {set_name}\n")
+    results = classifier.classify_competitor_set(set_name)
+
+    print(f"\n📊 Results:")
+    print(json.dumps(results, indent=2))
