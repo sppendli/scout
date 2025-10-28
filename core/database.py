@@ -283,6 +283,26 @@ class ScoutDB:
         conn.close()
         return results
     
+    def get_unclassified_articles_by_set(self, set_name: str, limit: int = 100) -> List[Dict]:
+        """
+        Get articles from a competitor set that don't have events yet.
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT a.*, s.url as source_url, c.name as competitor_name
+            FROM articles a
+            JOIN sources s ON a.source_id = s.id
+            JOIN competitors c ON s.competitor_id = c.id
+            WHERE c.set_name = ?
+            AND a.id NOT IN (SELECT article_id FROM events)
+            ORDER BY a.fetched_at DESC
+            LIMIT ?
+        """, (set_name, limit))
+        results = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return results
+    
     def get_events_by_article_id(self, article_id: int) -> List[Dict]:
         """
         Get all events for a specific article.

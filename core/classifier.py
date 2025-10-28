@@ -237,3 +237,17 @@ Classify this article according to the system instructions.
 
         logger.info(f"✅ Batch classification complete: {stats['classified']} events in {elapsed:.1f}s")
         return stats
+    
+    def classify_competitor_set(self, set_name: str) -> Dict:
+        """
+        Classify all unclassified articles for a competitor set.
+        """
+        logger.info(f"🎯 Classifying articles for set: {set_name}")
+
+        articles = db.get_unclassified_articles_by_set(set_name)
+        
+        if not articles:
+            logger.info("No unclassified articles found")
+            return {"message": "No new articles to classify", "classifed": 0}
+        
+        return self.batch_classify(articles)
