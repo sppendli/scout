@@ -34,6 +34,7 @@ class EventClassifier:
         
         self.client = OpenAI(api_key=api_key)
         self.model = LLM_CONFIG["model"]
+        self.confidence_threshold = LLM_CONFIG["confidence_threshold"] 
         self.cache = {}
         self.request_times = []
 
@@ -92,6 +93,12 @@ You must respond with valid JSON matching this structure:
     "entities": ["Entity1", "Entity2"],
     "impact_level": "high|medium|low"
 }}
+
+REQUIREMENTS:
+- "confidence" MUST be a NUMBER between 0.0 and 1.0 (NOT a string)
+- "entities" MUST be an ARRAY of strings (NOT a string or object)
+- "category" MUST be one of: feature_launch, pricing_change, partnership, other
+- "impact_level" MUST be one of: high, medium, low
 
 If the article contains no relevant competitive intelligence, return:
 {{
@@ -153,8 +160,11 @@ Classify this article according to the system instructions.
             if not all(field in result for field in required_fields):
                 logger.error(f"Invalid response format: {result}")
                 return None
-            
-            if result["confidence"] < LLM_CONFIG["confidence_threshold"]:
+
+            if isinstance(result.get('confidence'), str):
+                result['confidence'] = float(result['confidence'])
+
+            if result["confidence"] < self.confidence_threshold:
                 logger.info(f"⏭️ Skipping low confidence ({result['confidence']:.2f}): {article['title'][:50]}")
                 return None
             
@@ -180,7 +190,7 @@ Classify this article according to the system instructions.
             return None
         
         if classification["category"] == "other":
-            logger.debug(f"Skipping 'other' category fore: {article['title'][:50]}")
+            logger.debug(f"Skipping 'other' category for: {article['title'][:50]}")
             return None
         
         try:

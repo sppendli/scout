@@ -83,7 +83,7 @@ LLM_CONFIG = {
     "temperature": 0,
     "max_tokens": 500,
     "batch_size": 5,
-    "confidence_threshld": "0.6"
+    "confidence_threshold": 0.1
 }
 
 def get_all_competitors() -> List[str]:

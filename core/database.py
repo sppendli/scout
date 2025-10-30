@@ -322,7 +322,7 @@ class ScoutDB:
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT COUNT(*) as total,
+            SELECT COUNT(*) as total
             FROM events e
             JOIN articles a on e.article_id = a.id
             JOIN sources s ON a.source_id = s.id
