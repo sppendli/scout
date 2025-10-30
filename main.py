@@ -96,5 +96,76 @@ if not events:
 
         st.divider()
 
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.subheader("Event Timeline")
+
+            timeline_data = []
+            for event in events[:30]:
+                timeline_data.append({
+                    "date": event.get('publish_date', event['created_at'])[:10],
+                    "competitor": event['competitor_name'],
+                    "category": event['category'].replace('_', ' ').title(),
+                    "summary": event['summary'][:100] + '...',
+                    "confidence": event['confidence'],
+                    "impact": event['impact_level']
+                })
+
+            for item in timeline_data:
+                impact_emoji = {"high": "🔥", "medium": "⚡", "low":"💡"}
+                category_emoji = {
+                    "Feature Launch": "🚀",
+                    "Pricing Change": "💰",
+                    "Partnership": "🤝",
+                    "Other": "📰"
+                }
+
+                with st.expander(
+                    f"{impact_emoji.get(item['impact'], '📌')} {category_emoji.get(item['category'], '📰')} "
+                    f"**{item['competitor']}** - {item['summary'][:60]}...",
+                    expanded=False
+                ):
+                    st.markdown(f"**Category**: {item['category']}")
+                    st.markdown(f"**Date**: {item['date']}")
+                    st.markdown(f"**Impact**: {item['impact'].capitalize()}")
+                    st.markdown(f"**Confidence**: {item['confidence']:.0%}")
+                    st.markdown(f"**Summary**: {item['summary']}")
+
+        with col2:
+            st.subheader("Category Breakdown")
+
+            if stats['by_category']:
+                fig = px.pie(
+                    values=list(stats['by_category'].values()),
+                    names=[k.replace('_', ' ').title() for k in stats['by_category'].keys()],
+                    color_discrete_sequence=px.colors.sequential.Purples_r
+                )
+                fig.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig, use_container_width=True)
+
+            st.subheader("Impact Distribution")
+            impact_counts = {}
+            for event in events:
+                level = event['impact_level']
+                impact_counts['level'] = impact_counts.get(level, 0) + 1
+
+            if impact_counts:
+                fig = go.Figure(data=[
+                    go.Bar(
+                        x=list(impact_counts.keys()),
+                        y=list(impact_counts.values()),
+                        marker_color=['#ff6b6b', '#feca57', '#48dbfb']
+                    )
+                ])
+                fig.update_layout(
+                    showlegend=False,
+                    height=250,
+                    margin=dict(l=0, r=0, t=0, b=0)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
     with st.expander("📋 View All Events (JSON)", expanded=False):
         st.json([dict(e) for e in events])
