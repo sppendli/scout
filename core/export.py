@@ -14,6 +14,36 @@ class ScoutExporter:
     def __init__(self):
         pass
 
+    def _format_date(self):
+        """
+        Format date string for display.
+        """
+        pass
+
+    def _get_category_emoji(self):
+        """
+        Get emoji for category.
+        """
+        pass
+
+    def _get_impact_emoji(self):
+        """
+        Get emoji for impact level.
+        """
+        pass
+
+    def _generate_category_chart(self):
+        """
+        Generate embedded category breakdown chart as base64 image.
+        """
+        pass
+
+    def _generate_impact_chart(self):
+        """
+        Generate embedded impact distribution chart as base64 image.
+        """
+        pass
+
     def generate_briefing(self, set_name: str, days: int = 7, include_charts: bool = True):
         """
         Generate HTML briefing for a competitor set.
