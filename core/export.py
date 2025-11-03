@@ -80,11 +80,42 @@ class ScoutExporter:
         
         return f'<img src="data:image/png;base64,{img_base64}" style="max-width: 100%; height: auto;" />'
 
-    def _generate_impact_chart(self):
+    def _generate_impact_chart(self, events: List[Dict]) -> str:
         """
         Generate embedded impact distribution chart as base64 image.
         """
-        pass
+        if not events:
+            return ""
+        
+        impact_counts = {"high": 0, "medium": 0, "low": 0}
+        for event in events:
+            level = event.get('impact_level', 'medium')
+            impact_counts[level] = impact_counts.get(level, 0) + 1
+
+        fig = go.Figure(data=[
+            go.Bar(
+                x=list(impact_counts.keys()),
+                y=list(impact_counts.values()),
+                marker_color=['#ff6b6b', '#feca57', '#48dbfb'],
+                text=list(impact_counts.values()),
+                textposition='auto'
+            )
+        ])
+
+        fig.update_layout(
+            title="Impact Distribution",
+            height=350,
+            showlegend=False,
+            title_font_size=20,
+            title_x=0.5,
+            xaxis_title="Impact Level",
+            yaxis_title="Count"
+        )
+
+        img_bytes = fig.to_image(format="png", width=600, height=350)
+        img_base64 = base64.b64encode(img_bytes).decode()
+
+        return f'<img src="data:image/png;base64,{img_base64}" style="max-width: 100%; height: auto;" />'
 
     def generate_briefing(self, set_name: str, days: int = 7, include_charts: bool = True):
         """
