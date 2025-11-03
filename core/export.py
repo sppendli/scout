@@ -4,6 +4,9 @@ HTML/PDF export functionality for Market Intelligence Briefings.
 
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
+import base64
+import plotly.graph_objects as go
+import plotly.express as px
 
 from core.database import db
 
@@ -50,11 +53,32 @@ class ScoutExporter:
         }
         return emojis.get(impact, "📌")
 
-    def _generate_category_chart(self):
+    def _generate_category_chart(self, stats: Dict) -> str:
         """
         Generate embedded category breakdown chart as base64 image.
         """
-        pass
+        if not stats.get('by_category'):
+            return ""
+        
+        fig = px.pie(
+            values=list(stats['by_category'].values()),
+            names=[k.replace('_', ' ').title() for k in stats['by_category'].keys()],
+            color_discrete_sequence=px.colors.sequential.Purples_r,
+            title="Event Categories"
+        )
+
+        fig.update_traces(textposition='inside', textinfo='percent+label')
+        fig.update_layout(
+            height=400,
+            showlegend=True,
+            title_font_size=20,
+            title_x=0.5
+        )
+
+        img_bytes = fig.to_image(format="png", width=800, height=400)
+        img_base64 = base64.b64encode(img_bytes).decode()
+        
+        return f'<img src="data:image/png;base64,{img_base64}" style="max-width: 100%; height: auto;" />'
 
     def _generate_impact_chart(self):
         """
