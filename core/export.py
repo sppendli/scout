@@ -2,6 +2,7 @@
 HTML/PDF export functionality for Market Intelligence Briefings.
 """
 
+from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 
 from core.database import db
@@ -14,23 +15,40 @@ class ScoutExporter:
     def __init__(self):
         pass
 
-    def _format_date(self):
+    def _format_date(self, date_str: Optional[str]) -> str:
         """
         Format date string for display.
         """
-        pass
+        if not date_str:
+            return "Unknown"
+        try:
+            date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            return date_obj.strftime('%B %d, %Y')
+        except:
+            return date_str[:10] if len(date_str) >= 10 else date_str
 
-    def _get_category_emoji(self):
+    def _get_category_emoji(self, category: str) -> str:
         """
         Get emoji for category.
         """
-        pass
+        emojis = {
+            "feature_launch": "🚀",
+            "pricing_change": "💰",
+            "partnership": "🤝",
+            "other": "📰"
+        }
+        return emojis.get(category, "📌")
 
-    def _get_impact_emoji(self):
+    def _get_impact_emoji(self, impact: str) -> str:
         """
         Get emoji for impact level.
         """
-        pass
+        emojis = {
+            "high": "🔥",
+            "medium": "⚡",
+            "low": "💡"
+        }
+        return emojis.get(impact, "📌")
 
     def _generate_category_chart(self):
         """
