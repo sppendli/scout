@@ -13,6 +13,7 @@ from core.config import get_set_names
 from core.scraper import scraper
 from core.classifier import classifier
 from core.database import db
+from core.export import exporter
 
 st.set_page_config(
     page_title="Scout",
@@ -63,7 +64,41 @@ with st.sidebar:
             if scrape_results['new_articles'] > 0:
                 classify_results = classifier.classify_competitor_set(selected_set)
                 st.success(f"✅ ClassifiedL {classify_results.get('classified', 0)} events")
+            else:
+                st.info("No new articles to classify")
 
+    st.divider()
+
+    st.subheader("📄 Export Briefing")
+
+    export_days = st.selectbox(
+        "Report Period",
+        options=[7, 14, 30, 90],
+        format_func=lambda x: f"Last {x} days",
+        index=0
+    )
+
+    include_charts = st.checkbox("Include Charts", value=True)
+
+    if st.button("📥 Generate Report", use_container_width=True):
+        with st.spinner("Generating briefing..."):
+            html_content = exporter.generate_briefing(
+                set_name=selected_set,
+                days=export_days,
+                include_charts=include_charts
+            )
+
+            st.download_button(
+                label="⬇️ Download HTML",
+                data=html_content,
+                file_name=f"scout_briefing_{selected_set.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.html",
+                mime="text/html",
+                use_container_width=True
+            )
+
+            st.success("✅ Briefing ready for download!")
+            st.info("💡 Tip: Open the HTML file and use 'Print to PDF' in your browser")
+    
     st.divider()
     st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
