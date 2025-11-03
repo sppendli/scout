@@ -14,7 +14,7 @@ class ScoutExporter:
     def __init__(self):
         pass
 
-    def generate_briefing(self, set_name: str, days: int = 7):
+    def generate_briefing(self, set_name: str, days: int = 7, include_charts: bool = True):
         """
         Generate HTML briefing for a competitor set.
         """
@@ -73,7 +73,75 @@ class ScoutExporter:
             "           </div>",
         ]
 
-        #     "       </div>",
-        #     "   </div>",
-        #     "</body>",
-        # ]
+        if include_charts and events:
+            html_parts.extend([
+                "           <div class='section'>",
+                "               <h2 class='section-title'>📈 Analytics</h2>",
+                "               <div class='chart-container'>",
+                self._generate_category_chart(stats),
+                "               </div>",
+                "               <div class='chart-container>",
+                self._generate_impact_chart(events),
+                "               </div>",
+                "           </div>"
+            ])
+        
+        html_parts.extend([
+            "           <div class='section'>",
+            "               <h2 class='section-title'>📅 Event Timeline</h2>",
+        ])
+
+        if not events:
+            html_parts.append("                <p>No events found for the specified period.</p>")
+        else:
+            for event in events:
+                category_badge_class = f"category-{event['category'].replace('_', '-')}"
+                impact_badge_class = f"badge-{event['impact_level']}"
+
+                html_parts.extend([
+                    "               <div class='event-card'>",
+                    "                   <div class='event-header'>",
+                    "                       <div class='event-title'>",
+                    f"                          {self._get_category_emoji(event['category'])} {event['competitor_name']}: {event['title'][:80]}",
+                    "                       </div>",
+                    f"                       <span class='event-badge {impact_badge_class}'>{self._get_impact_emoji(event['impact_level'])} {event['impact_level'].upper()}</span>",
+                    "                   </div>",
+                    "                   <div class='event-meta'>",
+                    f"                       <span class='event-badge {category_badge_class}'>{event['category'].replace('_', '-').title()}</span>",
+                    f"                       <span>📅 {self._format_date(event.get('publish_date'))}</span>",
+                    "                   </div>",
+                    "                   <div class='event-summary'>",
+                    f"                       {event['summary']}",
+                    "                   </div>",
+                    "                   <div class='event-footer>",
+                    "                       <div style='display: flex; align-items: center; flex-grow:1;'>",
+                    "                           <div class='confidence-bar'>",
+                    f"                               <div class='confidence-fill' style='width: {event['confidence']*100}%'></div>",
+                    "                           </div>",
+                    f"                           <span style='font-size: 0.85 em; color: #666;'>Confidence: {event['confidence']:.0%}</span>",
+                    "                       </div>",
+                    f"                       <a href='{event['url']}' class='source-link' target='_blank'>View Source -></a>"
+                    "                   </div>",
+                    "               </div>",
+                ])
+        
+        html_parts.extend([
+            "           </div>"
+            "       </div>",
+
+            "       <div class='footer'>",
+            "           <div class='footer-logo'>🔍 Scout Market Intelligence</div>",
+            "           <div class='footer-text'>",
+            "               Competitive Intelligence Platform | Powered by AI<br>",
+            f"               Report generated {datetime.now().strftime('%B %d, %Y')} | <a href='https://labs.pspverse.com' style='color: #667eea;'>psp-labs.com</a>",
+            "           </div'>",
+            "       </div>",
+
+            "   </div>",
+            "</body>",
+            "</html>"
+        ])
+
+        return "\n".join(html_parts)
+    
+exporter = ScoutExporter()
