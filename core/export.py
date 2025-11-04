@@ -18,6 +18,255 @@ class ScoutExporter:
     def __init__(self):
         pass
 
+    def _get_css(self) -> str:
+        """Return CSS styling for the report."""
+        return """
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background: #f8f9fa;
+                padding: 20px;
+            }
+            
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                background: white;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                border-radius: 10px;
+                overflow: hidden;
+            }
+            
+            .header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 40px;
+                text-align: center;
+            }
+            
+            .header h1 {
+                font-size: 2.5em;
+                margin-bottom: 10px;
+                font-weight: 700;
+            }
+            
+            .header .subtitle {
+                font-size: 1.2em;
+                opacity: 0.9;
+            }
+            
+            .header .meta {
+                margin-top: 20px;
+                font-size: 0.9em;
+                opacity: 0.8;
+            }
+            
+            .content {
+                padding: 40px;
+            }
+            
+            .section {
+                margin-bottom: 40px;
+            }
+            
+            .section-title {
+                font-size: 1.8em;
+                color: #667eea;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+                border-bottom: 3px solid #667eea;
+            }
+            
+            .metrics-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 20px;
+                margin-bottom: 30px;
+            }
+            
+            .metric-card {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 25px;
+                border-radius: 10px;
+                text-align: center;
+            }
+            
+            .metric-value {
+                font-size: 2.5em;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+            
+            .metric-label {
+                font-size: 1em;
+                opacity: 0.9;
+            }
+            
+            .event-card {
+                background: #f8f9fa;
+                border-left: 4px solid #667eea;
+                padding: 20px;
+                margin-bottom: 20px;
+                border-radius: 5px;
+                page-break-inside: avoid;
+            }
+            
+            .event-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+            }
+            
+            .event-title {
+                font-size: 1.2em;
+                font-weight: 600;
+                color: #333;
+            }
+            
+            .event-meta {
+                display: flex;
+                gap: 15px;
+                font-size: 0.85em;
+                color: #666;
+                margin-bottom: 10px;
+            }
+            
+            .event-badge {
+                display: inline-block;
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 0.8em;
+                font-weight: 600;
+            }
+            
+            .badge-high {
+                background: #ff6b6b;
+                color: white;
+            }
+            
+            .badge-medium {
+                background: #feca57;
+                color: #333;
+            }
+            
+            .badge-low {
+                background: #48dbfb;
+                color: white;
+            }
+            
+            .category-feature {
+                background: #a29bfe;
+                color: white;
+            }
+            
+            .category-pricing {
+                background: #fdcb6e;
+                color: #333;
+            }
+            
+            .category-partnership {
+                background: #6c5ce7;
+                color: white;
+            }
+            
+            .event-summary {
+                margin: 15px 0;
+                color: #555;
+                line-height: 1.7;
+            }
+            
+            .event-footer {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 15px;
+                padding-top: 15px;
+                border-top: 1px solid #ddd;
+            }
+            
+            .confidence-bar {
+                flex-grow: 1;
+                max-width: 200px;
+                height: 8px;
+                background: #e0e0e0;
+                border-radius: 10px;
+                overflow: hidden;
+                margin-right: 15px;
+            }
+            
+            .confidence-fill {
+                height: 100%;
+                background: linear-gradient(90deg, #667eea, #764ba2);
+                border-radius: 10px;
+            }
+            
+            .source-link {
+                color: #667eea;
+                text-decoration: none;
+                font-size: 0.9em;
+            }
+            
+            .source-link:hover {
+                text-decoration: underline;
+            }
+            
+            .chart-container {
+                margin: 30px 0;
+                text-align: center;
+            }
+            
+            .footer {
+                background: #f8f9fa;
+                padding: 30px 40px;
+                text-align: center;
+                border-top: 1px solid #ddd;
+            }
+            
+            .footer-logo {
+                font-size: 1.5em;
+                font-weight: 700;
+                color: #667eea;
+                margin-bottom: 10px;
+            }
+            
+            .footer-text {
+                color: #666;
+                font-size: 0.9em;
+            }
+            
+            @media print {
+                body {
+                    background: white;
+                    padding: 0;
+                }
+                
+                .container {
+                    box-shadow: none;
+                    max-width: 100%;
+                }
+                
+                .source-link {
+                    color: #667eea;
+                    text-decoration: underline;
+                }
+                
+                .event-card {
+                    page-break-inside: avoid;
+                }
+            }
+        </style>
+        """
+
     def _format_date(self, date_str: Optional[str]) -> str:
         """
         Format date string for display.
