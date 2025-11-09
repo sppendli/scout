@@ -1,6 +1,19 @@
 """
 LLM-based event classification for Market Intelligence.
-Uses OpenAI GPT-4o-Mini with structured outputs for reliable parsing.
+
+This module provides AI-powered classification of competitive intelligence
+articles using OpenAI's GPT-4o-Mini with structured JSON outputs. It includes
+caching, rate limiting, and batch processing capabilities.
+
+Classes
+-------
+EventClassifier
+    LLM-based article classifier with caching and rate limiting
+
+Functions
+---------
+classifier : EventClassifier
+    Global classifier instances
 """
 
 import os
@@ -25,9 +38,40 @@ logger = logging.getLogger(__name__)
 class EventClassifier:
     """
     LLM-based article classifier with caching and rate limiting.
+    
+    This class uses OpenAI's GPT-4o-Mini to classify competitive intelligence
+    articles into categories (feature launches, pricing changes, partnerships).
+    It includes built-in caching to avoid duplicate API calls and rate limiting
+    to stay within API quotas.
+    
+    Attributes
+    ----------
+    client : OpenAI
+        Authenticated OpenAI API client
+    model : str
+        Model identifier (e.g., "gpt-4o-mini")
+    confidence_threshold : float
+        Minimum confidence score to accept classification (0.0-1.0)
+    cache : dict
+        In-memory cache mapping content hashes to classification results
+    request_times : list of float
+        Timestamps of recent API requests for rate limiting
+        
+    Raises
+    ------
+    ValueError
+        If OPENAI_API_KEY environment variable is not set
     """
 
     def __init__(self):
+        """
+        Initialize classifier with OpenAI API credentials.
+
+        Raises
+        ------
+        ValueError
+            If OPENAI_API_KEY environmenr variable is not found
+        """
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OpenAI API Key not found in environment.")
@@ -41,6 +85,15 @@ class EventClassifier:
     def _rate_limit(self):
         """
         Enforce rate limiting (3 requests per second).
+        
+        Blocks execution if more than 3 requests have been made in the
+        last second. Uses sliding window algorithm to track request times.
+        
+        Notes
+        -----
+        This is a blocking operation. If the rate limit is exceeded, the
+        method will sleep until it's safe to proceed. The 3 req/sec limit
+        aligns with OpenAI's Tier 1 rate limits for GPT-4o-mini.
         """
         now = time.time()
         self.request_times = [t for t in self.request_times if now - t < 1.0]
@@ -54,6 +107,23 @@ class EventClassifier:
     def _build_system_prompt(self) -> str:
         """
         Construct system prompt with category definitions and examples.
+        
+        Dynamically builds the system prompt from EVENT_CATEGORIES config,
+        including descriptions, keywords, and examples for each category.
+        Also includes classification rules, confidence scoring guidelines,
+        and structured output requirements.
+        
+        Returns
+        -------
+        str
+            Complete system prompt with category definitions, classification
+            rules, and JSON schema requirements
+            
+        Notes
+        -----
+        The prompt uses few-shot learning principles with concrete examples
+        and explicit instructions for JSON formatting. Temperature is set to 0
+        in the API call for deterministic outputs.
         """
         categories_deec = "\n\n".join([
             f"**{cat}**: {info['description']}\n"
@@ -113,6 +183,34 @@ If the article contains no relevant competitive intelligence, return:
     def _build_user_prompt(self, article: Dict) -> str:
         """
         Format article content for classification.
+        
+        Constructs the user message with article metadata and truncated content.
+        Content is limited to 3000 characters to stay within token limits while
+        providing sufficient context for classification.
+        
+        Parameters
+        ----------
+        article : dict
+            Article dictionary with keys:
+            - title : str
+                Article headline
+            - content : str
+                Full article text (will be truncated to 3000 chars)
+            - competitor_name : str, optional
+                Source company name
+            - url : str
+                Article URL
+        
+        Returns
+        -------
+        str
+            Formatted user prompt with article details
+            
+        Notes
+        -----
+        The 3000 character limit is empirically chosen to balance context
+        quality with API costs. Most blog post intros contain enough signal
+        within the first 3000 characters for accurate classification.
         """
         return f"""Analyze this article and extract for competitve intelligence:
 
@@ -130,8 +228,47 @@ Classify this article according to the system instructions.
     
     def classify_article(self, article: Dict) -> Optional[Dict]:
         """
-        Classify an article using LLM.
-        Returns classification dict or None if below confidence threshold.
+        Classify a single article using LLM.
+        
+        Sends article content to OpenAI API for structured classification.
+        Results are cached by content hash to avoid redundant API calls.
+        Returns None if confidence is below threshold or if API call fails.
+        
+        Parameters
+        ----------
+        article : dict
+            Article dictionary with keys:
+            - id : int
+                Article database ID
+            - title : str
+                Article headline
+            - content : str
+                Full article text
+            - url : str
+                Article URL
+            - competitor_name : str, optional
+                Source company name
+        
+        Returns
+        -------
+        dict or None
+            Classification result dictionary with keys:
+            - category : str
+                Event category (feature_launch, pricing_change, partnership, other)
+            - summary : str
+                1-2 sentence competitive insight summary
+            - confidence : float
+                Confidence score (0.0-1.0)
+            - entities : list of str
+                Extracted entities (products, features, companies)
+            - impact_level : str
+                Competitive impact (high, medium, low)
+            
+            Returns None if:
+            - Confidence is below threshold (default 0.5)
+            - API call fails
+            - Response format is invalid
+            - Cache hit returns None (previously failed)
         """
         content_hash = hashlib.sha256(article['content'].encode()).hexdigest()
         if content_hash in self.cache:
@@ -183,7 +320,32 @@ Classify this article according to the system instructions.
     def classify_and_save(self, article: Dict) -> Optional[int]:
         """
         Classify article and save event to database.
-        Returns event_id if successful, None otherwise.
+        
+        Combines classification and database persistence in a single operation.
+        Automatically skips "other" category results (non-actionable content).
+        
+        Parameters
+        ----------
+        article : dict
+            Article dictionary with required keys:
+            - id : int
+                Article database ID (used as foreign key)
+            - title : str
+                Article headline
+            - content : str
+                Full article text
+            - url : str
+                Article URL
+            - competitor_name : str, optional
+                Source company name
+        
+        Returns
+        -------
+        int or None
+            Database ID of created event, or None if:
+            - Classification fails or returns None
+            - Category is "other" (non-actionable)
+            - Database save operation fails
         """
         classification = self.classify_article(article)
         if not classification:
@@ -210,7 +372,39 @@ Classify this article according to the system instructions.
     def batch_classify(self, articles: List[Dict], max_articles: int = None) -> Dict:
         """
         Classify multiple articles with progress tracking.
-        Returns summary statistics.
+        
+        Processes a list of articles sequentially, skipping already-classified
+        articles and tracking detailed statistics. Designed for ETL pipelines
+        and scheduled refresh workflows.
+        
+        Parameters
+        ----------
+        articles : list of dict
+            List of article dictionaries (see classify_article for schema)
+        max_articles : int, optional
+            Maximum number of articles to process (useful for testing),
+            by default None (process all)
+        
+        Returns
+        -------
+        dict
+            Summary statistics dictionary with keys:
+            - total : int
+                Total articles in input list
+            - classified : int
+                Successfully classified and saved events
+            - skipped_low_confidence : int
+                Articles below confidence threshold
+            - skipped_other : int
+                Articles already classified or "other" category
+            - errors : int
+                API failures or unexpected errors
+            - cached : int
+                Cache hits (not currently tracked, reserved for future)
+            - elapsed_seconds : float
+                Total processing time in seconds
+            - avg_time_per_article : float
+                Average processing time per article in seconds
         """
         if max_articles:
             articles = articles[:max_articles]
@@ -252,6 +446,27 @@ Classify this article according to the system instructions.
     def classify_competitor_set(self, set_name: str) -> Dict:
         """
         Classify all unclassified articles for a competitor set.
+        
+        High-level convenience method that queries the database for
+        unclassified articles in a specific competitor set and processes
+        them in batch. This is the primary entry point for scheduled
+        classification jobs.
+        
+        Parameters
+        ----------
+        set_name : str
+            Name of competitor set (e.g., "SaaS Analytics", "Design Tools",
+            "Project Management")
+        
+        Returns
+        -------
+        dict
+            Statistics dictionary from batch_classify, or a message dict if
+            no articles are found:
+            - message : str
+                "No new articles to classify"
+            - classified : int
+                0
         """
         logger.info(f"🎯 Classifying articles for set: {set_name}")
 
@@ -259,7 +474,7 @@ Classify this article according to the system instructions.
         
         if not articles:
             logger.info("No unclassified articles found")
-            return {"message": "No new articles to classify", "classifed": 0}
+            return {"message": "No new articles to classify", "classified": 0}
         
         return self.batch_classify(articles)
 
