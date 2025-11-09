@@ -1,5 +1,19 @@
 """
 HTML/PDF export functionality for Market Intelligence Briefings.
+
+This module generates professional HTML reports with embedded visualizations
+for competitive intelligence briefings. Reports can be saved as HTML or
+converted to PDF using browser print functionality.
+
+Classes
+-------
+ScoutExporter
+    Generate HTML briefings for Market Intelligence Reports
+
+Functions
+---------
+exporter : ScoutExporter
+    Global exporter instance
 """
 
 from typing import List, Dict, Optional
@@ -13,13 +27,39 @@ from core.database import db
 class ScoutExporter:
     """
     Generate HTML briefings for Market Intelligence Reports.
+    
+    This class creates professional, print-ready HTML reports summarizing
+    competitive intelligence events. Reports include metrics, visualizations,
+    and detailed event timelines with PSP Labs branding.
+    
+    The generated HTML is self-contained with embedded CSS and base64-encoded
+    chart images, making it easy to distribute via email or convert to PDF.
     """
 
     def __init__(self):
+        """
+        Initialize exporter.
+        
+        No configuration needed - all styling and templates are embedded.
+        """
         pass
 
     def _get_css(self) -> str:
-        """Return CSS styling for the report."""
+        """
+        Return CSS styling for the report.
+        
+        Provides complete styling for the intelligence briefing including:
+        - Responsive grid layouts
+        - Gradient color schemes (purple theme)
+        - Print-optimized styles
+        - Event card styling with impact indicators
+        - Chart containers
+        
+        Returns
+        -------
+        str
+            Complete CSS stylesheet wrapped in <style> tags
+        """
         return """
         <style>
             * {
@@ -270,6 +310,21 @@ class ScoutExporter:
     def _format_date(self, date_str: Optional[str]) -> str:
         """
         Format date string for display.
+        
+        Converts ISO 8601 date strings to human-readable format
+        (e.g., "November 09, 2025"). Handles various input formats
+        and returns "Unknown" for invalid/missing dates.
+        
+        Parameters
+        ----------
+        date_str : str or None
+            ISO format date string (YYYY-MM-DD or full ISO timestamp)
+        
+        Returns
+        -------
+        str
+            Formatted date string in "Month DD, YYYY" format, or
+            "Unknown" if date is None/invalid
         """
         if not date_str:
             return "Unknown"
@@ -281,7 +336,20 @@ class ScoutExporter:
 
     def _get_category_emoji(self, category: str) -> str:
         """
-        Get emoji for category.
+        Get emoji icon for event category.
+        
+        Returns a visual indicator emoji for each event category to
+        improve scanability in the event timeline.
+        
+        Parameters
+        ----------
+        category : str
+            Event category (feature_launch, pricing_change, partnership, other)
+        
+        Returns
+        -------
+        str
+            Unicode emoji character
         """
         emojis = {
             "feature_launch": "🚀",
@@ -293,7 +361,20 @@ class ScoutExporter:
 
     def _get_impact_emoji(self, impact: str) -> str:
         """
-        Get emoji for impact level.
+        Get emoji icon for impact level.
+        
+        Returns a visual indicator emoji for impact severity to
+        help executives quickly identify high-priority events.
+        
+        Parameters
+        ----------
+        impact : str
+            Impact level (high, medium, low)
+        
+        Returns
+        -------
+        str
+            Unicode emoji character
         """
         emojis = {
             "high": "🔥",
@@ -305,6 +386,22 @@ class ScoutExporter:
     def _generate_category_chart(self, stats: Dict) -> str:
         """
         Generate embedded category breakdown chart as base64 image.
+        
+        Creates a pie chart showing distribution of events across categories
+        (feature launches, pricing changes, partnerships). Chart is rendered
+        as PNG and embedded as base64 data URI for portability.
+        
+        Parameters
+        ----------
+        stats : dict
+            Statistics dictionary from db.get_event_stats_by_set() with keys:
+            - by_category : dict
+                Mapping of category names to event counts
+        
+        Returns
+        -------
+        str
+            HTML img tag with base64-encoded PNG, or empty string if no data
         """
         if not stats.get('by_category'):
             return ""
@@ -332,6 +429,21 @@ class ScoutExporter:
     def _generate_impact_chart(self, events: List[Dict]) -> str:
         """
         Generate embedded impact distribution chart as base64 image.
+        
+        Creates a bar chart showing count of events by impact level
+        (high, medium, low). Useful for assessing overall competitive
+        threat landscape at a glance.
+        
+        Parameters
+        ----------
+        events : list of dict
+            List of event dictionaries with 'impact_level' keys
+        
+        Returns
+        -------
+        str
+            HTML img tag with base64-encoded PNG, or empty string if no events
+
         """
         if not events:
             return ""
@@ -368,7 +480,30 @@ class ScoutExporter:
 
     def generate_briefing(self, set_name: str, days: int = 7, include_charts: bool = True):
         """
-        Generate HTML briefing for a competitor set.
+        Generate complete HTML briefing for a competitor set.
+        
+        Creates a professional, print-ready intelligence briefing with:
+        - Executive summary with key metrics (total events, category breakdown)
+        - Optional visual analytics (category pie chart, impact bar chart)
+        - Chronological event timeline with confidence indicators
+        
+        The output is a self-contained HTML file with embedded CSS and
+        base64-encoded chart images, ready for distribution or PDF conversion.
+        
+        Parameters
+        ----------
+        set_name : str
+            Name of competitor set (e.g., "SaaS Analytics", "Design Tools")
+        days : int, optional
+            Report period in days (for display only - actual data is not
+            date-filtered), by default 7
+        include_charts : bool, optional
+            Whether to embed Plotly charts (requires kaleido), by default True
+        
+        Returns
+        -------
+        str
+            Complete HTML document as a string
         """
         events = db.get_events_by_set(set_name, limit=100)
         stats = db.get_event_stats_by_set(set_name)
