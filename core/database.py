@@ -1,6 +1,13 @@
 """
-SQLite database management.
-Handles schema creation, CRUD operations, and query utilities.
+SQLite database management for competitive intelligence.
+
+This module handles all database operations including schema creation,
+CRUD operations, and complex queries for competitive intelligence data.
+
+Classes
+-------
+ScoutDB
+    Main database manager with connection pooling and error handling
 """
 
 import sqlite3
@@ -17,16 +24,43 @@ logger = logging.getLogger(__name__)
 class ScoutDB:
     """
     Database manager for Scout with connection pooling and error handling.
+
+    This class manages all interactions with the SQLite database including
+    schema initialization, CRUD operations, and complex queries for
+    retrieving competitive intelligence data.
+    
+    Parameters
+    ----------
+    db_path : str, optional
+        Path to SQLite database file, default is "data/scout.db"
+        
+    Attributes
+    ----------
+    db_path : Path
+        Resolved path to database file
     """
 
     def __init__(self, db_path: str="data/scout.db"):
+        """
+        Initialize database connection and schema.
+        
+        Parameters
+        ----------
+        db_path : str, optional
+            Path to SQLite database file, default is "data/scout.db"
+        """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_schema()
 
     def _get_connection(self) -> sqlite3.Connection:
         """
-        Create connection with row factory for dict-like access.
+        Create database connection with row factory for dict-like access.
+        
+        Returns
+        -------
+        sqlite3.Connection
+            Database connection with Row factory enabled
         """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
@@ -35,6 +69,8 @@ class ScoutDB:
     def _init_schema(self):
         """
         Initialize database schema if tables don't exist.
+
+        This function creates database tables with indexes if the tables do not exist.
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -100,6 +136,18 @@ class ScoutDB:
     def add_competitor(self, name: str, set_name: str) -> int:
         """
         Add a competitor to the database.
+        
+        Parameters
+        ----------
+        name : str
+            Competitor company name (must be unique)
+        set_name : str
+            Name of competitor set (e.g., "SaaS Analytics")
+            
+        Returns
+        -------
+        int
+            Database ID of competitor (newly created or existing)
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -120,6 +168,21 @@ class ScoutDB:
     def get_competitors_by_set(self, set_name: str) -> List[Dict]:
         """
         Retrieve all competitors in a specific set.
+
+        Parameters
+        ----------
+        set_name : str
+            Name of competitor set (e.g., "SaaS Analytics")
+
+        Returns
+        -------
+        list of dict
+            List of competitor dictionaries that are active with keys:
+                - id: Competitor ID
+                - name: Competitor Name
+                - set_name: Competitor Set Name
+                - active: Active Flag (0, 1)
+                - created_at: Event Creation Timestamp
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -133,7 +196,21 @@ class ScoutDB:
     
     def add_source(self, competitor_id: int, url: str, source_type: str) -> int:
         """
-        Add a data source for a competitor.
+        Add a data source for a competitor to the database.
+
+        Parameters
+        ----------
+        competitor_id : int
+            Competitor ID of the Source
+        url : str
+            URL of the Source
+        source_type : str
+            Type of the Source (e.g. "html", "rss")
+
+        Returns
+        -------
+        int
+            Last Row ID of the source (newly created or existing)
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -154,6 +231,21 @@ class ScoutDB:
     def get_sources_by_competitor(self, competitor_id: int) -> List[Dict]:
         """
         Get all sources for a competitor.
+
+        Parameters
+        ----------
+        competitor_id: int        
+        
+        Returns
+        -------
+        list of dict
+            list of source dictionaries that are active with the keys:
+                - id: Source ID
+                - competitor_id: Competitor ID
+                - url: URL of the Source
+                - source_type: Type of the Source (e.g., "html", "css")
+                - last_scraped: Timestamp of when the source was last scraped
+                - status: Status of the Source
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -168,6 +260,12 @@ class ScoutDB:
     def update_source_scrape_time(self, source_id: int):
         """
         Update the last_scraped timestamp for a source.
+
+        This function updates the last_scrape_time to the current timestamp in the source table.
+
+        Parameters
+        ----------
+        source_id: int
         """
         conn = self._get_connection()
         cursor = conn.cursor()

@@ -1,6 +1,21 @@
 """
-Static configuration.
-URLs validated as of October 2025.
+Static configuration for competitor sets.
+
+This module contains all static configuration including competito definitions, event categories, 
+scraping parameters, and LLM settings. URLs are validated as of October 2025.
+
+Attributes
+----------
+COMPETITOR_SETS : dict
+    Nested dictionary of competitor sets with source URLs
+EVENT_CATEGORIES : dict
+    Classification categories with descriptions and examples
+USER_AGENTS : list
+    Rotating user agent strings for web scraping
+SCRAPE_CONFIG : dict
+    Scraping parameters (timeout, retries, rate limits)
+LLM_CONFIG : dict
+    LLM classification parameters (model, temperature, thresholds)
 """
 
 from typing import Dict, List
@@ -197,7 +212,12 @@ USER_AGENTS = [
 
 def get_random_user_agent() -> str:
     """
-    Return a random user agent to rotate requests.
+    Return a random user agent string for request rotation.
+    
+    Returns
+    -------
+    str
+        Random user agent string from USER_AGENTS list
     """
     return random.choice(USER_AGENTS)
 
@@ -220,6 +240,11 @@ LLM_CONFIG = {
 def get_all_competitors() -> List[str]:
     """
     Return flat list of all competitor names across all sets.
+    
+    Returns
+    -------
+    list of str
+        All competitor names from COMPETITOR_SETS
     """
     competitors = []
     for set_name, competitors_list in COMPETITOR_SETS.items():
@@ -229,13 +254,24 @@ def get_all_competitors() -> List[str]:
 def get_set_names() -> List[str]:
     """
     Return list of available competitor set names.
+    
+    Returns
+    -------
+    list of str
+        Names of all competitor sets
     """
     return list(COMPETITOR_SETS.keys())
 
 def load_competitors_to_db():
     """
-    Populate database with configured conpetitors and sources.
-    Safe to run multiple times (idempotent due to UNIQUE constraints).
+    Populate database with configured competitors and sources.
+    
+    Safe to run multiple times due to UNIQUE constraints on database tables.
+    Idempotent operation - existing records are skipped.
+    
+    Notes
+    -----
+    This function should be called during initial setup via scripts/init_db.py
     """
     from core.database import db
     
