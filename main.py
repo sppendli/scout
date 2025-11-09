@@ -1,6 +1,12 @@
 """
 Scout - Market Intelligence Dashboard
-Entry point for Streamlit application.
+
+Entry point for the Streamlit web application. Provides interactive UI for
+scraping competitor blogs, classifying events with AI, visualizing competitive
+intelligence, and exporting professional briefings.
+
+This module orchestrates all core Scout functionality (scraping, classification,
+database, export) into a unified dashboard for competitive intelligence monitoring.
 """
 
 import streamlit as st
