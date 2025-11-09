@@ -60,7 +60,7 @@ class ScoutDB:
         Returns
         -------
         sqlite3.Connection
-            Database connection with Row factory enabled
+            Database connection with Row factory enabled for dict-like access
         """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
@@ -70,7 +70,13 @@ class ScoutDB:
         """
         Initialize database schema if tables don't exist.
 
-        This function creates database tables with indexes if the tables do not exist.
+        Creates the following tables with appropriate foreign keys and indexes:
+        - competitors: Company information and competitor sets
+        - sources: Data sources (blogs, RSS feeds) for each competitor
+        - articles: Scraped content with deduplication via content hash
+        - events: Classified competitive intelligence events
+        
+        Also creates indexes on frequently queried columns for performance.
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -137,12 +143,15 @@ class ScoutDB:
         """
         Add a competitor to the database.
         
+        If a competitor with the same name already exists, returns the
+        existing competitor's ID instead of creating a duplicate.
+        
         Parameters
         ----------
         name : str
             Competitor company name (must be unique)
         set_name : str
-            Name of competitor set (e.g., "SaaS Analytics")
+            Name of competitor set (e.g., "SaaS Analytics", "Design Tools")
             
         Returns
         -------
@@ -167,7 +176,7 @@ class ScoutDB:
 
     def get_competitors_by_set(self, set_name: str) -> List[Dict]:
         """
-        Retrieve all competitors in a specific set.
+        Retrieve all active competitors in a specific set.
 
         Parameters
         ----------
@@ -177,12 +186,17 @@ class ScoutDB:
         Returns
         -------
         list of dict
-            List of competitor dictionaries that are active with keys:
-                - id: Competitor ID
-                - name: Competitor Name
-                - set_name: Competitor Set Name
-                - active: Active Flag (0, 1)
-                - created_at: Event Creation Timestamp
+            List of competitor dictionaries with keys:
+            - id : int
+                Competitor database ID
+            - name : str
+                Competitor company name
+            - set_name : str
+                Competitor set name
+            - active : int
+                Active status flag (1 = active, 0 = inactive)
+            - created_at : str
+                ISO format timestamp of creation
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -197,20 +211,23 @@ class ScoutDB:
     def add_source(self, competitor_id: int, url: str, source_type: str) -> int:
         """
         Add a data source for a competitor to the database.
+        
+        If a source with the same URL already exists, returns the existing
+        source's ID instead of creating a duplicate.
 
         Parameters
         ----------
         competitor_id : int
-            Competitor ID of the Source
+            Foreign key reference to competitors table
         url : str
-            URL of the Source
+            Full URL of the data source (must be unique)
         source_type : str
-            Type of the Source (e.g. "html", "rss")
+            Type of source, either "html" or "rss"
 
         Returns
         -------
         int
-            Last Row ID of the source (newly created or existing)
+            Database ID of source (newly created or existing)
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -230,22 +247,29 @@ class ScoutDB:
 
     def get_sources_by_competitor(self, competitor_id: int) -> List[Dict]:
         """
-        Get all sources for a competitor.
+        Get all active sources for a competitor.
 
         Parameters
         ----------
-        competitor_id: int        
+        competitor_id : int
+            Foreign key reference to competitors table
         
         Returns
         -------
         list of dict
-            list of source dictionaries that are active with the keys:
-                - id: Source ID
-                - competitor_id: Competitor ID
-                - url: URL of the Source
-                - source_type: Type of the Source (e.g., "html", "css")
-                - last_scraped: Timestamp of when the source was last scraped
-                - status: Status of the Source
+            List of source dictionaries with keys:
+            - id : int
+                Source database ID
+            - competitor_id : int
+                Foreign key to competitor
+            - url : str
+                Source URL
+            - source_type : str
+                Type of source ("html" or "rss")
+            - last_scraped : str or None
+                ISO timestamp of last successful scrape
+            - status : str
+                Status flag ("active" or "inactive")
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -259,13 +283,15 @@ class ScoutDB:
     
     def update_source_scrape_time(self, source_id: int):
         """
-        Update the last_scraped timestamp for a source.
+        Update the last_scraped timestamp for a source to current time.
 
-        This function updates the last_scrape_time to the current timestamp in the source table.
+        This should be called after successfully scraping a source to track
+        when data was last collected.
 
         Parameters
         ----------
-        source_id: int
+        source_id : int
+            Database ID of the source to update
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -279,8 +305,28 @@ class ScoutDB:
     def add_article(self, source_id: int, title: str, content : str, 
                     url:str, publish_date: Optional[str] = None) -> Optional[int]:
         """
-        Add an article with deduplication via content hash.
-        Returns article_id if new, None if duplicate.
+        Add an article with automatic deduplication via content hash.
+        
+        Uses SHA-256 hash of article content to detect duplicates. If the
+        content hash already exists, returns None instead of creating a duplicate.
+
+        Parameters
+        ----------
+        source_id : int
+            Foreign key reference to sources table
+        title : str
+            Article headline/title
+        content : str
+            Full text content of the article
+        url : str
+            Direct URL to the article
+        publish_date : str, optional
+            ISO format publication date (YYYY-MM-DD or full ISO timestamp)
+
+        Returns
+        -------
+        int or None
+            Database ID of newly created article, or None if duplicate detected
         """
         content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
         conn = self._get_connection()
@@ -304,7 +350,44 @@ class ScoutDB:
 
     def get_articles_by_competitor(self, competitor_id: int, limit: int = 50) -> List[Dict]:
         """
-        Get recent articles for a competitor with source info.
+        Get recent articles for a competitor with source and competitor info.
+        
+        Performs a three-way join across articles, sources, and competitors
+        to provide full context for each article.
+
+        Parameters
+        ----------
+        competitor_id : int
+            Foreign key reference to competitors table
+        limit : int, optional
+            Maximum number of articles to return, by default 50
+        
+        Returns
+        -------
+        list of dict
+            List of article dictionaries sorted by fetch time (newest first) with keys:
+            - id : int
+                Article database ID
+            - source_id : int
+                Foreign key to source
+            - title : str
+                Article title
+            - content : str
+                Full article text
+            - url : str
+                Article URL
+            - publish_date : str or None
+                ISO publication date
+            - content_hash : str
+                SHA-256 hash for deduplication
+            - fetched_at : str
+                ISO timestamp of scrape
+            - source_url : str
+                URL of the source that provided this article
+            - source_type : str
+                Type of source ("html" or "rss")
+            - competitor_name : str
+                Name of the competitor
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -324,6 +407,37 @@ class ScoutDB:
     def get_unclassified_articles(self, limit: int = 100) -> List[Dict]:
         """
         Get articles that don't have associated events yet.
+        
+        Returns articles that have been scraped but not yet processed by
+        the LLM classifier. Useful for batch classification workflows.
+
+        Parameters
+        ----------
+        limit : int, optional
+            Maximum number of articles to return, by default 100
+            
+        Returns
+        -------
+        list of dict
+            List of unclassified article dictionaries with keys:
+            - id : int
+                Article database ID
+            - source_id : int
+                Foreign key to source
+            - title : str
+                Article title
+            - content : str
+                Full article text
+            - url : str
+                Article URL
+            - publish_date : str or None
+                ISO publication date
+            - fetched_at : str
+                ISO timestamp of scrape
+            - source_url : str
+                URL of the source
+            - competitor_name : str
+                Name of the competitor
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -344,7 +458,30 @@ class ScoutDB:
                   confidence: float, entities: Dict = None, 
                   impact_level: str = "medium") -> int:
         """
-        Add a classified event from LLM analysis.
+        Add a classified competitive intelligence event from LLM analysis.
+        
+        Stores the results of LLM classification including category, confidence
+        score, extracted entities, and impact assessment.
+
+        Parameters
+        ----------
+        article_id : int
+            Foreign key reference to articles table
+        category : str
+            Event category: "feature_launch", "pricing_change", "partnership", or "other"
+        summary : str
+            1-2 sentence summary of the competitive intelligence insight
+        confidence : float
+            LLM confidence score between 0.0 and 1.0
+        entities : dict, optional
+            Dictionary of extracted entities (products, features, companies), by default None
+        impact_level : str, optional
+            Competitive impact rating: "high", "medium", or "low", by default "medium"
+
+        Returns
+        -------
+        int
+            Database ID of the newly created event
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -363,6 +500,47 @@ class ScoutDB:
     def get_events_by_set(self, set_name: str, limit: int = 100) -> List[Dict]:
         """
         Get all events for a competitor set with full context.
+        
+        Performs a four-way join to provide complete article, source, and
+        competitor information for each event. Sorted by creation time (newest first).
+
+        Parameters
+        ----------
+        set_name : str
+            Name of competitor set (e.g., "SaaS Analytics")
+        limit : int, optional
+            Maximum number of events to return, by default 100
+            
+        Returns
+        -------
+        list of dict
+            List of event dictionaries with keys:
+            - id : int
+                Event database ID
+            - article_id : int
+                Foreign key to article
+            - category : str
+                Event category
+            - summary : str
+                Event summary
+            - confidence : float
+                Confidence score (0.0-1.0)
+            - entities : str
+                JSON string of extracted entities
+            - impact_level : str
+                Impact rating
+            - created_at : str
+                ISO timestamp of classification
+            - title : str
+                Article title
+            - url : str
+                Article URL
+            - publish_date : str or None
+                Article publication date
+            - competitor_name : str
+                Competitor company name
+            - set_name : str
+                Competitor set name
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -384,6 +562,39 @@ class ScoutDB:
     def get_unclassified_articles_by_set(self, set_name: str, limit: int = 100) -> List[Dict]:
         """
         Get articles from a competitor set that don't have events yet.
+        
+        Filters unclassified articles to a specific competitor set, useful
+        for targeted batch classification workflows.
+
+        Parameters
+        ----------
+        set_name : str
+            Name of competitor set to filter by
+        limit : int, optional
+            Maximum number of articles to return, by default 100
+            
+        Returns
+        -------
+        list of dict
+            List of unclassified article dictionaries with keys:
+            - id : int
+                Article database ID
+            - source_id : int
+                Foreign key to source
+            - title : str
+                Article title
+            - content : str
+                Full article text
+            - url : str
+                Article URL
+            - publish_date : str or None
+                ISO publication date
+            - fetched_at : str
+                ISO timestamp of scrape
+            - source_url : str
+                URL of the source
+            - competitor_name : str
+                Name of the competitor
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -404,6 +615,35 @@ class ScoutDB:
     def get_events_by_article_id(self, article_id: int) -> List[Dict]:
         """
         Get all events for a specific article.
+        
+        Useful for checking if an article has already been classified to
+        avoid duplicate processing.
+
+        Parameters
+        ----------
+        article_id : int
+            Database ID of the article
+            
+        Returns
+        -------
+        list of dict
+            List of event dictionaries (may be empty if unclassified) with keys:
+            - id : int
+                Event database ID
+            - article_id : int
+                Foreign key to article
+            - category : str
+                Event category
+            - summary : str
+                Event summary
+            - confidence : float
+                Confidence score
+            - entities : str
+                JSON string of entities
+            - impact_level : str
+                Impact rating
+            - created_at : str
+                ISO timestamp
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -415,6 +655,24 @@ class ScoutDB:
     def get_event_stats_by_set(self, set_name: str) -> Dict:
         """
         Get aggregated statistics for a competitor set.
+        
+        Provides summary metrics including total event count and breakdown
+        by category. Used for dashboard metrics and analytics.
+
+        Parameters
+        ----------
+        set_name : str
+            Name of competitor set (e.g., "Project Management")
+            
+        Returns
+        -------
+        dict
+            Statistics dictionary with keys:
+            - total_events : int
+                Total number of events in the set
+            - by_category : dict
+                Mapping of category names to counts, e.g.:
+                {"feature_launch": 15, "pricing_change": 3, "partnership": 7}
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -447,7 +705,10 @@ class ScoutDB:
     
     def reset_database(self):
         """
-        Drop all tables and reinitialize (use with caution).
+        Drop all tables and reinitialize schema.
+        
+        **WARNING**: This operation is destructive and irreversible. All data
+        will be permanently deleted. Use only for testing or development.
         """
         conn = self._get_connection()
         cursor = conn.cursor()
