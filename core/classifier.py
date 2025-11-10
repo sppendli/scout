@@ -74,9 +74,14 @@ class EventClassifier:
         """
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            raise ValueError("OpenAI API Key not found in environment.")
+            logger.warning("⚠️ DEMO MODE: OpenAI API key not found - classification disabled")
+            logger.info("💡 The app will display existing events from the database")
+            self.client = None
+            self.demo_mode = True
+        else:
+            self.client = OpenAI(api_key=api_key)
+            self.demo_mode = False
         
-        self.client = OpenAI(api_key=api_key)
         self.model = LLM_CONFIG["model"]
         self.confidence_threshold = LLM_CONFIG["confidence_threshold"] 
         self.cache = {}
@@ -270,6 +275,10 @@ Classify this article according to the system instructions.
             - Response format is invalid
             - Cache hit returns None (previously failed)
         """
+        if self.demo_mode:
+            logger.info(f"⏭️  Skipping classification (demo mode): {article['title'][:50]}")
+            return None
+        
         content_hash = hashlib.sha256(article['content'].encode()).hexdigest()
         if content_hash in self.cache:
             logger.debug(f"Cache hit for article: {article['title'][:50]}")

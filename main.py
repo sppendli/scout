@@ -14,6 +14,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import json
+import os
 
 from core.config import get_set_names
 from core.scraper import scraper
@@ -48,6 +49,15 @@ st.markdown("""
 st.title("🔍 Scout")
 st.caption("Market Intelligence")
 
+if not os.getenv("OPENAI_API_KEY"):
+    st.warning("""
+        **🎭 Demo Mode**: No OpenAI API key detected.
+        
+        - ✅ View existing events from database
+        - ❌ Classification disabled (requires API key)
+        - 💡 Add `OPENAI_API_KEY` to Streamlit secrets to enable AI classification
+    """, icon="ℹ️")
+
 with st.sidebar:
     st.header("Configuration")
     selected_set = st.selectbox(
@@ -71,16 +81,21 @@ with st.sidebar:
                     st.json(results)
 
     with col2:
+        has_api_key = os.getenv("OPENAI_API_KEY") is not None
+
         if st.button("🤖 Classify", use_container_width=True):
             with st.spinner("Running AI classification..."):
                 results = classifier.classify_competitor_set(selected_set)
                 st.success(f"✅ {results.get('classified', 0)} events")
                 with st.expander("Details"):
                     st.json(results)
+        
+        if not has_api_key:
+            st.caption("⚠️ Requires API key")
 
     st.divider()
 
-    if st.button("⚡Full Refresh", type="primary", use_container_width=True):
+    if st.button("⚡Full Refresh", type="primary", use_container_width=True, disabled=not has_api_key):
         with st.spinner("Running full refresh..."):
             scrape_results = scraper.scrape_competitor_set(selected_set)
             st.info(f"📡 Scraped: {scrape_results['new_articles']} articles")
@@ -90,6 +105,9 @@ with st.sidebar:
                 st.success(f"✅ ClassifiedL {classify_results.get('classified', 0)} events")
             else:
                 st.info("No new articles to classify")
+
+    if not has_api_key:
+        st.caption("⚠️ Requires API key for classification")
 
     st.divider()
 
