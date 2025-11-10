@@ -6,6 +6,8 @@
 
 Scout automates competitive intelligence by scraping competitor sources, extracting strategic events with LLM classification, and delivering executive-ready briefings.
 
+🌐 [**Launch the Demo**](https://psplabs-scout.streamlit.app/)
+
 ## 💡 What is Scout?
 
 Executives and product teams waste hours tracking competitors across fragmented sources—blogs, changelogs, press releases, pricing pages. Scout solves this by:
